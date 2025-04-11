@@ -5,20 +5,18 @@ WORKDIR /app
 # Установка системных зависимостей
 RUN apt-get update && apt-get install -y \
     gcc \
-    libc6-dev \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Копирование файлов зависимостей
+# Копирование файлов проекта
 COPY requirements.txt .
-
-# Установка зависимостей Python
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копирование исходного кода
-COPY src/ ./src/
+COPY . .
 
-# Создание директории для базы данных
-RUN mkdir -p /app/data
+# Создание пользователя без прав root
+RUN useradd -m appuser && chown -R appuser:appuser /app
+USER appuser
 
-# Запуск бота
+# Запуск приложения
 CMD ["python", "src/main.py"] 

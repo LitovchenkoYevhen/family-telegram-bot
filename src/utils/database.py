@@ -19,50 +19,23 @@ def is_public_url(url: str) -> bool:
 class Database:
     def __init__(self):
         # Логируем все переменные окружения (безопасно, так как это только для отладки)
-        env_vars = {k: v for k, v in os.environ.items() if not k.startswith('RAILWAY_')}
+        env_vars = {k: v for k, v in os.environ.items()}
         logger.info(f"Доступные переменные окружения: {list(env_vars.keys())}")
         
-        # Проверяем наличие переменных окружения
-        database_url = os.getenv('DATABASE_URL')
-        database_public_url = os.getenv('DATABASE_PUBLIC_URL')
+        # Получаем параметры подключения к базе данных
+        db_user = os.getenv('POSTGRES_USER', 'postgres')
+        db_password = os.getenv('POSTGRES_PASSWORD', 'postgres')
+        db_host = os.getenv('POSTGRES_HOST', 'db')
+        db_port = os.getenv('POSTGRES_PORT', '5432')
+        db_name = os.getenv('POSTGRES_DB', 'family_bot')
         
-        logger.info("Проверка переменных окружения для подключения к базе данных")
+        # Формируем URL для подключения
+        database_url = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
         
-        if not database_url and not database_public_url:
-            logger.error("DATABASE_URL и DATABASE_PUBLIC_URL не найдены!")
-            logger.error("Проверьте, что PostgreSQL сервис и сервис с ботом находятся в одном проекте")
-            raise ValueError("DATABASE_URL и DATABASE_PUBLIC_URL не найдены в переменных окружения")
-        
-        # Выбираем URL в зависимости от доступности
-        if database_url and database_public_url:
-            logger.info("Найдены оба URL базы данных:")
-            logger.info(f"Внутренний URL (postgres.railway.internal): {is_internal_url(database_url)}")
-            logger.info(f"Публичный URL (ballast.proxy.rlwy.net): {is_public_url(database_public_url)}")
-            # Всегда используем публичный URL, так как внутренний не работает
-            database_url = database_public_url
-            logger.info("Использую публичный URL (ballast.proxy.rlwy.net)")
-        elif database_url:
-            database_url = database_url
-            logger.info("Использую доступный DATABASE_URL")
-        else:
-            database_url = database_public_url
-            logger.info("Использую доступный DATABASE_PUBLIC_URL")
-            
-        # Удаляем 'postgres://' и заменяем на 'postgresql://' если необходимо
-        if database_url.startswith('postgres://'):
-            database_url = database_url.replace('postgres://', 'postgresql://', 1)
-            logger.info("URL базы данных обновлен для использования postgresql://")
-        
-        # Логируем только хост и порт для безопасности
-        db_parts = database_url.split('@')
-        if len(db_parts) > 1:
-            logger.info(f"Подключение к базе данных: {db_parts[1]}")
-        else:
-            logger.info("Подключение к базе данных (формат URL нестандартный)")
+        logger.info(f"Подключение к базе данных: {db_host}:{db_port}/{db_name}")
         
         try:
             logger.info("Попытка создания движка SQLAlchemy")
-            logger.info(f"Используемый URL: {database_url}")
             
             # Добавляем параметры подключения для SQLAlchemy
             connect_args = {
