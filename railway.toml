@@ -4,10 +4,13 @@ buildCommand = "pip install -r requirements.txt"
 
 [deploy]
 startCommand = "python src/main.py"
-healthcheckPath = "/"
-healthcheckTimeout = 100
-restartPolicyType = "on-failure"
+restartPolicy = "always"
 restartPolicyMaxRetries = 10
 
 [deploy.env]
-PYTHON_VERSION = "3.11" 
+PYTHON_VERSION = "3.11.7"
+PYTHONPATH = "/app/src"
+
+# Требуется PostgreSQL сервис
+# Railway автоматически предоставляет DATABASE_PUBLIC_URL для PostgreSQL сервисов
+# Убедитесь, что PostgreSQL сервис создан в том же проекте 

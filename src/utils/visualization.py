@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime, timedelta
 import pandas as pd
-from ..models.transaction import Transaction
+from models.transaction import Transaction
+import plotly.graph_objects as go
 
 class Visualizer:
     @staticmethod
