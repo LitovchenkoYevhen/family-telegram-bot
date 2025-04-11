@@ -1,122 +1,182 @@
 # Family Telegram Bot
 
-Бот для учета семейных расходов через Telegram.
+Телеграм-бот для учета семейных финансов. Позволяет отслеживать доходы и расходы, получать статистику и анализировать финансовые данные.
 
 ## Функциональность
 
-- Отслеживание расходов и доходов в групповом чате
-- Автоматическое распознавание сумм и категорий
-- Статистика и отчеты по расходам
-- Визуализация данных (графики и диаграммы)
-- Экспорт данных
+- Добавление доходов и расходов
+- Категоризация транзакций
+- Получение статистики по периодам
+- Визуализация данных
+- Поддержка нескольких пользователей
 
-## Установка и запуск
+## Технологии
 
-### Локальный запуск
+- Python 3.11
+- PostgreSQL
+- SQLAlchemy
+- Docker
+- AWS (EC2, RDS, ECS)
 
-1. Клонировать репозиторий:
+## Локальная разработка
+
+1. Клонируйте репозиторий:
 ```bash
-git clone [url-репозитория]
-```
-
-2. Создать виртуальное окружение и установить зависимости:
-```bash
-python -m venv venv
-source venv/bin/activate  # для Linux/Mac
-# или
-venv\Scripts\activate  # для Windows
-pip install -r requirements.txt
-```
-
-3. Создать файл .env и добавить необходимые переменные окружения:
-```
-TELEGRAM_BOT_TOKEN=your_bot_token
-```
-
-4. Запустить бота:
-```bash
-python src/main.py
-```
-
-### Запуск в Docker
-
-1. Клонировать репозиторий:
-```bash
-git clone [url-репозитория]
+git clone https://github.com/your-username/family-telegram-bot.git
 cd family-telegram-bot
 ```
 
-2. Создать файл .env и добавить токен бота:
-```
-TELEGRAM_BOT_TOKEN=your_bot_token
+2. Создайте файл `.env` и настройте переменные окружения:
+```env
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=family_bot
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
+LOG_LEVEL=INFO
 ```
 
-3. Создать директорию для данных:
-```bash
-mkdir data
-```
-
-4. Запустить бота с помощью Docker Compose:
+3. Запустите приложение с помощью Docker Compose:
 ```bash
 docker-compose up -d
 ```
 
-5. Проверить логи:
+## Развертывание на AWS
+
+### 1. Подготовка AWS инфраструктуры
+
+#### Создание VPC
+1. Создайте VPC с двумя публичными и двумя приватными подсетями
+2. Настройте Internet Gateway для публичных подсетей
+3. Создайте NAT Gateway для приватных подсетей
+4. Настройте таблицы маршрутизации
+
+#### Создание RDS
+1. Создайте инстанс PostgreSQL в приватной подсети
+2. Настройте Security Group для доступа из ECS
+3. Создайте базу данных и пользователя
+4. Сохраните параметры подключения
+
+#### Создание ECS кластера
+1. Создайте кластер ECS
+2. Настройте Security Group для доступа к интернету
+3. Создайте Task Definition для бота
+4. Настройте Service для запуска бота
+
+### 2. Настройка CI/CD
+
+#### Создание ECR репозитория
 ```bash
-docker-compose logs -f
+aws ecr create-repository --repository-name family-telegram-bot
 ```
 
-## Использование
+#### Настройка GitHub Actions
+1. Создайте секреты в GitHub:
+   - AWS_ACCESS_KEY_ID
+   - AWS_SECRET_ACCESS_KEY
+   - AWS_REGION
+   - TELEGRAM_BOT_TOKEN
+   - DB_HOST
+   - DB_NAME
+   - DB_USER
+   - DB_PASSWORD
 
-1. Добавьте бота в групповой чат
-2. Отправляйте сообщения о расходах в формате:
-   - "500 продукты"
-   - "1000 транспорт"
-   - и т.д.
-3. Отправляйте сообщения о доходах:
-   - "50000+ зарплата"
-   - "1000+ доход"
+2. Создайте workflow файл `.github/workflows/deploy.yml`:
+```yaml
+name: Deploy to AWS
 
-## Команды бота
+on:
+  push:
+    branches: [ main ]
 
-- `/start` - начало работы
-- `/help` - справка
-- `/stats` - статистика за месяц
-- `/report` - подробный отчет с графиками
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+      
+      - name: Build and push Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: family-telegram-bot
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+      
+      - name: Update ECS service
+        run: |
+          aws ecs update-service --cluster family-bot-cluster --service family-bot-service --force-new-deployment
+```
+
+### 3. Мониторинг и логирование
+
+#### Настройка CloudWatch
+1. Создайте группу логов
+2. Настройте метрики для мониторинга
+3. Создайте дашборды для визуализации
+
+#### Настройка алертов
+1. Создайте алерты для критических метрик
+2. Настройте уведомления через SNS
+3. Добавьте интеграцию с Telegram для уведомлений
 
 ## Структура проекта
 
 ```
-src/
-├── handlers/     # Обработчики команд и сообщений
-├── models/       # Модели данных
-├── utils/        # Вспомогательные функции
-└── main.py       # Точка входа
+family-telegram-bot/
+├── src/
+│   ├── main.py
+│   ├── models/
+│   │   ├── __init__.py
+│   │   └── transaction.py
+│   └── utils/
+│       ├── __init__.py
+│       ├── database.py
+│       └── visualization.py
+├── tests/
+├── .env
+├── .gitignore
+├── docker-compose.yml
+├── Dockerfile
+└── requirements.txt
 ```
 
-## Развертывание на сервере
+## Безопасность
 
-1. Установить Docker и Docker Compose на сервер
-2. Клонировать репозиторий
-3. Настроить .env файл
-4. Запустить с помощью Docker Compose:
-```bash
-docker-compose up -d
-```
+- Все чувствительные данные хранятся в AWS Secrets Manager
+- Используется шифрование данных в покое
+- Настроены Security Groups для ограничения доступа
+- Регулярное обновление зависимостей
+- Мониторинг безопасности через AWS Security Hub
 
-## Обновление бота
+## Масштабирование
 
-1. Остановить контейнер:
-```bash
-docker-compose down
-```
+- Автоматическое масштабирование ECS сервиса
+- Репликация базы данных
+- Кэширование часто используемых данных
+- Оптимизация запросов к базе данных
 
-2. Получить последние изменения:
-```bash
-git pull
-```
+## Поддержка
 
-3. Пересобрать и запустить:
-```bash
-docker-compose up -d --build
-```
+При возникновении проблем:
+1. Проверьте логи в CloudWatch
+2. Убедитесь, что все сервисы работают
+3. Проверьте настройки безопасности
+4. Создайте issue в репозитории
+
+## Лицензия
+
+MIT
