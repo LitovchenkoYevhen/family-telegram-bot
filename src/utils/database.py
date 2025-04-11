@@ -38,9 +38,9 @@ class Database:
             logger.info("Найдены оба URL базы данных:")
             logger.info(f"Внутренний URL (postgres.railway.internal): {is_internal_url(database_url)}")
             logger.info(f"Публичный URL (ballast.proxy.rlwy.net): {is_public_url(database_public_url)}")
-            # Всегда используем публичный URL, так как внутренний не работает
-            database_url = database_public_url
-            logger.info("Использую публичный URL (ballast.proxy.rlwy.net)")
+            # Используем внутренний URL, так как мы в Railway
+            database_url = database_url
+            logger.info("Использую внутренний URL (postgres.railway.internal)")
         elif database_url:
             database_url = database_url
             logger.info("Использую доступный DATABASE_URL")
@@ -70,7 +70,8 @@ class Database:
                 'keepalives': 1,        # Включаем keepalive
                 'keepalives_idle': 30,  # Время простоя перед отправкой keepalive
                 'keepalives_interval': 10,  # Интервал между keepalive
-                'keepalives_count': 5   # Количество попыток keepalive
+                'keepalives_count': 5,   # Количество попыток keepalive
+                'sslmode': 'require'     # Требуем SSL подключение
             }
             
             self.engine = create_engine(
