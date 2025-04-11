@@ -1,0 +1,20 @@
+-r requirements.txt
+
+# Тестирование
+pytest==8.0.2
+pytest-cov==4.1.0
+pytest-asyncio==0.23.5
+
+# Линтинг и форматирование
+flake8==7.0.0
+black==24.2.0
+isort==5.13.2
+mypy==1.8.0
+
+# Документация
+sphinx==7.2.6
+sphinx-rtd-theme==2.0.0
+
+# Отладка
+ipython==8.22.2
+ipdb==0.13.13 

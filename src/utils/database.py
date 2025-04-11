@@ -1,97 +1,73 @@
-import sqlite3
-from typing import List, Optional
+import os
 from datetime import datetime
-from ..models.transaction import Transaction
+from typing import List, Optional
+from sqlalchemy import create_engine, func
+from sqlalchemy.orm import sessionmaker
+from ..models.transaction import Base, Transaction
 
 class Database:
-    def __init__(self, db_path: str = "family_finances.db"):
-        self.db_path = db_path
+    def __init__(self, db_path: str = None):
+        if db_path is None:
+            db_path = os.getenv('DATABASE_PATH', 'family_finances.db')
+        
+        self.engine = create_engine(f'sqlite:///{db_path}')
+        self.Session = sessionmaker(bind=self.engine)
         self._init_db()
 
     def _init_db(self):
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS transactions (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    amount REAL NOT NULL,
-                    type TEXT NOT NULL,
-                    category TEXT NOT NULL,
-                    description TEXT,
-                    user_id INTEGER NOT NULL,
-                    chat_id INTEGER NOT NULL,
-                    timestamp DATETIME NOT NULL
-                )
-            ''')
-            conn.commit()
+        Base.metadata.create_all(self.engine)
 
     def add_transaction(self, transaction: Transaction) -> int:
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO transactions (amount, type, category, description, user_id, chat_id, timestamp)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                transaction.amount,
-                transaction.type,
-                transaction.category,
-                transaction.description,
-                transaction.user_id,
-                transaction.chat_id,
-                transaction.timestamp
-            ))
-            conn.commit()
-            return cursor.lastrowid
+        session = self.Session()
+        try:
+            session.add(transaction)
+            session.commit()
+            return transaction.id
+        finally:
+            session.close()
 
     def get_transactions(self, chat_id: int, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None) -> List[Transaction]:
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            query = '''
-                SELECT id, amount, type, category, description, user_id, chat_id, timestamp
-                FROM transactions
-                WHERE chat_id = ?
-            '''
-            params = [chat_id]
-
+        session = self.Session()
+        try:
+            query = session.query(Transaction).filter(Transaction.chat_id == chat_id)
+            
             if start_date:
-                query += ' AND timestamp >= ?'
-                params.append(start_date)
+                query = query.filter(Transaction.timestamp >= start_date)
             if end_date:
-                query += ' AND timestamp <= ?'
-                params.append(end_date)
-
-            cursor.execute(query, params)
-            return [
-                Transaction(
-                    id=row[0],
-                    amount=row[1],
-                    type=row[2],
-                    category=row[3],
-                    description=row[4],
-                    user_id=row[5],
-                    chat_id=row[6],
-                    timestamp=datetime.fromisoformat(row[7])
-                )
-                for row in cursor.fetchall()
-            ]
+                query = query.filter(Transaction.timestamp <= end_date)
+            
+            return query.all()
+        finally:
+            session.close()
 
     def get_statistics(self, chat_id: int, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None) -> dict:
-        transactions = self.get_transactions(chat_id, start_date, end_date)
-        
-        total_income = sum(t.amount for t in transactions if t.type == 'income')
-        total_expense = sum(t.amount for t in transactions if t.type == 'expense')
-        
-        categories = {}
-        for t in transactions:
-            if t.type not in categories:
-                categories[t.type] = {}
-            if t.category not in categories[t.type]:
-                categories[t.type][t.category] = 0
-            categories[t.type][t.category] += t.amount
-
-        return {
-            'total_income': total_income,
-            'total_expense': total_expense,
-            'balance': total_income - total_expense,
-            'categories': categories
-        } 
+        session = self.Session()
+        try:
+            query = session.query(Transaction).filter(Transaction.chat_id == chat_id)
+            
+            if start_date:
+                query = query.filter(Transaction.timestamp >= start_date)
+            if end_date:
+                query = query.filter(Transaction.timestamp <= end_date)
+            
+            transactions = query.all()
+            
+            total_income = sum(t.amount for t in transactions if t.type == 'income')
+            total_expense = sum(t.amount for t in transactions if t.type == 'expense')
+            
+            categories = {}
+            for t in transactions:
+                if t.type not in categories:
+                    categories[t.type] = {}
+                if t.category not in categories[t.type]:
+                    categories[t.type][t.category] = 0
+                categories[t.type][t.category] += t.amount
+            
+            return {
+                'total_income': total_income,
+                'total_expense': total_expense,
+                'balance': total_income - total_expense,
+                'categories': categories
+            }
+        finally:
+            session.close() 
